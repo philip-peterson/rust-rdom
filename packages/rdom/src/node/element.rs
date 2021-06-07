@@ -3,6 +3,7 @@
 use super::concrete::{ConcreteNodeArc, ElementNodeArc, ElementNodeWeak};
 use crate::sandbox::Builder;
 use crate::{internal_prelude::*, named_node_map::NamedNodeMap};
+use std::sync::RwLock;
 
 use std::convert::TryInto;
 
@@ -49,7 +50,7 @@ pub struct ElementStore {
     pub(crate) node: AnyNodeWeak,
 
     /// Attributes
-    attrs: Arc<NamedNodeMap>,
+    attrs: Arc<RwLock<NamedNodeMap>>,
 }
 
 impl ElementStore {
@@ -60,12 +61,12 @@ impl ElementStore {
     ) -> ElementStore {
         ElementStore {
             node_store,
-            attrs: NamedNodeMap::new(
+            attrs: Arc::new(RwLock::new(NamedNodeMap::new(
                 context,
                 node.clone()
                     .try_into()
                     .expect("Node was, unexpectedly, not an element"),
-            ),
+            ))),
             node,
         }
     }
@@ -73,6 +74,50 @@ impl ElementStore {
     /// [Element.tagName](https://developer.mozilla.org/en-US/docs/Web/API/Element/tagName)
     pub fn tag_name(&self) -> String {
         self.node_store.tag_name()
+    }
+
+    /// [Element.hasAttribute](https://developer.mozilla.org/en-US/docs/Web/API/Element/hasAttribute)
+    pub fn has_attribute(&self, attr_name: String) -> bool {
+        self.attrs
+            .read()
+            .expect("Could not lock attributes for reading")
+            .get_named_item(attr_name)
+            .is_some()
+    }
+
+    /// [Element.getAttribute](https://developer.mozilla.org/en-US/docs/Web/API/Element/getAttribute)
+    pub fn get_attribute(&self, attr_name: String) -> Option<String> {
+        self.attrs
+            .read()
+            .expect("Could not lock attributes for reading")
+            .get_named_item(attr_name)
+            .map(|item| item.contents.value.read().unwrap().clone())
+    }
+
+    /// [Element.removeAttribute](https://developer.mozilla.org/en-US/docs/Web/API/Element/removeAttribute)
+    pub fn remove_attribute(&self, attr_name: String) -> Result<(), DomError> {
+        self.attrs
+            .write()
+            .expect("Could not lock attributes for writing")
+            .remove_named_item(attr_name)
+            .map(|_| ())
+    }
+}
+
+impl ConcreteNodeArc<ElementStore> {
+    /// [Element.hasAttribute](https://developer.mozilla.org/en-US/docs/Web/API/Element/hasAttribute)
+    pub fn has_attribute(&self, attr_name: String) -> bool {
+        self.contents.has_attribute(attr_name)
+    }
+
+    /// [Element.getAttribute](https://developer.mozilla.org/en-US/docs/Web/API/Element/getAttribute)
+    pub fn get_attribute(&self, attr_name: String) -> Option<String> {
+        self.contents.get_attribute(attr_name)
+    }
+
+    /// [Element.removeAttribute](https://developer.mozilla.org/en-US/docs/Web/API/Element/removeAttribute)
+    pub fn remove_attribute(&mut self, attr_name: String) -> Result<(), DomError> {
+        self.contents.remove_attribute(attr_name)
     }
 }
 

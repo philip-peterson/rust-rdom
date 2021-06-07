@@ -33,15 +33,12 @@ impl SandboxMemberBehavior for NamedNodeMap {
 }
 
 impl NamedNodeMap {
-    pub(crate) fn new(
-        context: Weak<Sandbox>,
-        owning_element: ElementNodeWeak,
-    ) -> Arc<NamedNodeMap> {
-        Arc::new(NamedNodeMap {
+    pub(crate) fn new(context: Weak<Sandbox>, owning_element: ElementNodeWeak) -> NamedNodeMap {
+        NamedNodeMap {
             context,
             attribute_list: Vec::new(),
             owning_element,
-        })
+        }
     }
 
     /// Gets an attribute node given its name.
@@ -71,7 +68,8 @@ impl NamedNodeMap {
                 let name = item.contents.name();
                 let name = name.to_ascii_lowercase();
                 let existing_index = self.get_attribute_idx(name);
-                item.contents.set_owner_element(Some(self.owning_element.clone()));
+                item.contents
+                    .set_owner_element(Some(self.owning_element.clone()));
                 Ok(if let Some(existing_index) = existing_index {
                     let existing_attr = self.attribute_list[existing_index].clone();
                     if existing_attr == item {
